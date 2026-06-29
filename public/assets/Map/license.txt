@@ -1,0 +1,8 @@
+Model Information:
+* title:	Medieval town free
+* source:	https://sketchfab.com/3d-models/medieval-town-free-259bd5ef431b4bfd962d123b20e0183f
+* author:	Pasha (https://sketchfab.com/perga8-hAwguf-hybwup)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

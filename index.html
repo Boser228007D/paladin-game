@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paladin Adventure</title>
+    <link rel="stylesheet" href="./style.css">
+    <style>
+      #player-count {
+        position: fixed;
+        top: 16px;
+        right: 20px;
+        color: #fff;
+        font-family: 'Georgia', serif;
+        font-size: 14px;
+        text-shadow: 1px 1px 3px #000;
+        background: rgba(0,0,0,0.45);
+        padding: 6px 14px;
+        border-radius: 8px;
+        pointer-events: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      #player-count::before { content: '⚔'; font-size: 16px; }
+
+      #hp-bar-wrap {
+        position: fixed;
+        bottom: 28px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 240px;
+        pointer-events: none;
+      }
+      #hp-label {
+        color: #fff;
+        font-family: 'Georgia', serif;
+        font-size: 12px;
+        text-shadow: 1px 1px 3px #000;
+        margin-bottom: 4px;
+        text-align: center;
+      }
+      #hp-bar-bg {
+        width: 100%;
+        height: 14px;
+        background: rgba(0,0,0,0.5);
+        border-radius: 7px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.2);
+      }
+      #hp-bar {
+        height: 100%;
+        width: 100%;
+        background: linear-gradient(90deg, #c0392b, #e74c3c);
+        border-radius: 7px;
+        transition: width 0.3s ease, background 0.3s ease;
+      }
+
+      #death-screen {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(180,0,0,0.5);
+        color: #fff;
+        font-family: 'Georgia', serif;
+        font-size: 48px;
+        text-align: center;
+        padding-top: 35vh;
+        text-shadow: 2px 2px 8px #000;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="ui">
+      <h1>Paladin Adventure</h1>
+      <p>Lock camera (Click/C), Sprint (L-Shift), Attack (LMB), Block (Hold RMB)</p>
+    </div>
+
+    <div id="player-count">1 игрок</div>
+
+    <div id="hp-bar-wrap">
+      <div id="hp-label">HP: 100 / 100</div>
+      <div id="hp-bar-bg"><div id="hp-bar"></div></div>
+    </div>
+
+    <div id="death-screen">💀 Вы погибли</div>
+
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>
