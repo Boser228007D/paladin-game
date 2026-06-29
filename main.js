@@ -1036,18 +1036,20 @@ sfx.step_grass.loop = true;
 Object.values(sfx).forEach(a => a.volume = 0.5);
 let lastStepTime = 0;
 
-// Play on first click
-document.addEventListener('mousedown', () => {
+// Play on click
+let hasInteracted = false;
+document.addEventListener('click', () => {
+    hasInteracted = true;
     if (bgMusic.paused) {
         bgMusic.play().catch(e => console.log('Music play blocked:', e));
     }
-}, { once: true });
+});
 
 // Pause when switching tabs
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
         bgMusic.pause();
-    } else {
+    } else if (hasInteracted) {
         bgMusic.play().catch(e => console.log('Music play blocked:', e));
     }
 });
