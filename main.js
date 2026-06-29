@@ -1038,7 +1038,7 @@ let lastStepTime = 0;
 
 // Play on click
 let hasInteracted = false;
-document.addEventListener('click', () => {
+document.addEventListener('mousedown', () => {
     hasInteracted = true;
     if (bgMusic.paused) {
         bgMusic.play().catch(e => console.log('Music play blocked:', e));
