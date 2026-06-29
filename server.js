@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { fileURLToPath } from "url";
@@ -14,7 +14,7 @@ const io = new Server(httpServer, {
 
 // Serve static build (production)
 app.use(express.static(path.join(__dirname, "dist")));
-app.get("*", (req, res) => {
+app.use((req, res) => {
     res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
