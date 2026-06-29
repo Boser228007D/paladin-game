@@ -48,9 +48,9 @@ document.addEventListener('mousemove', (event) => {
     }
 });
 
-// Day/Night cycle - 1 day = 5 minutes (300 seconds)
-const DAY_DURATION = 300;
-let dayTime = 75; // Start at midday (seconds)
+// Day/Night cycle - 1 cycle = 8 minutes (480 seconds: 5m day, 1m eve, 2m night)
+const DAY_DURATION = 480;
+let dayTime = 0;
 
 const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
 sunLight.castShadow = true;
@@ -103,10 +103,28 @@ for (let i = 0; i < 40; i++) {
 }
 scene.add(cloudGroup);
 
+let serverTimeOffset = 0;
 function updateDayNight(delta) {
-    dayTime = (dayTime + delta) % DAY_DURATION;
-    const t = dayTime / DAY_DURATION; // 0..1 over full day
-    const angle = t * Math.PI * 2; // 0..2PI
+    const absoluteTimeMs = Date.now() - serverTimeOffset;
+    dayTime = (absoluteTimeMs / 1000) % DAY_DURATION;
+    const t_real = dayTime / DAY_DURATION; // 0..1 over 8 minutes
+
+    // Map linear time to sun time:
+    // Day (5m) = 0 to 5/8  --> maps to sun t 0.0 to 0.5 (Sunrise to Sunset)
+    // Eve (1m) = 5/8 to 6/8 --> maps to sun t 0.5 to 0.65 (Dusk to Night)
+    // Night (2m) = 6/8 to 1.0 --> maps to sun t 0.65 to 1.0 (Night to Dawn)
+    let t_sun;
+    if (t_real < 0.625) {
+        t_sun = (t_real / 0.625) * 0.5;
+    } else if (t_real < 0.75) {
+        const f = (t_real - 0.625) / 0.125;
+        t_sun = 0.5 + f * 0.15;
+    } else {
+        const f = (t_real - 0.75) / 0.25;
+        t_sun = 0.65 + f * 0.35;
+    }
+
+    const angle = t_sun * Math.PI * 2; // 0..2PI
 
     // Sun position on a big arc
     const sunRadius = 300;
@@ -121,36 +139,36 @@ function updateDayNight(delta) {
     const sunIntensity = Math.max(0, elevation); // only when above horizon
     sunLight.intensity = sunIntensity * 1.5;
 
-    // Sky & fog color interpolation
+    // Sky & fog color interpolation based on t_sun
     let skyColor;
-    if (t < 0.05) {
-        // Just past midnight -> night
-        skyColor = skyColors.night.clone();
-    } else if (t < 0.2) {
-        // Dawn
-        const f = (t - 0.05) / 0.15;
-        skyColor = skyColors.night.clone().lerp(skyColors.dawn, f);
-    } else if (t < 0.3) {
-        // Dawn -> morning
-        const f = (t - 0.2) / 0.1;
-        skyColor = skyColors.dawn.clone().lerp(skyColors.morning, f);
-    } else if (t < 0.45) {
-        // Morning -> noon
-        const f = (t - 0.3) / 0.15;
+    if (t_sun < 0.1) {
+        // Dawn -> Morning (0 to 0.1)
+        skyColor = skyColors.dawn.clone().lerp(skyColors.morning, t_sun / 0.1);
+    } else if (t_sun < 0.25) {
+        // Morning -> Noon (0.1 to 0.25)
+        const f = (t_sun - 0.1) / 0.15;
         skyColor = skyColors.morning.clone().lerp(skyColors.noon, f);
-    } else if (t < 0.55) {
-        skyColor = skyColors.noon.clone();
-    } else if (t < 0.7) {
-        // Noon -> dusk
-        const f = (t - 0.55) / 0.15;
-        skyColor = skyColors.noon.clone().lerp(skyColors.dusk, f);
-    } else if (t < 0.8) {
-        // Dusk -> night
-        const f = (t - 0.7) / 0.1;
+    } else if (t_sun < 0.4) {
+        // Noon -> Afternoon/Morning (0.25 to 0.4)
+        const f = (t_sun - 0.25) / 0.15;
+        skyColor = skyColors.noon.clone().lerp(skyColors.morning, f);
+    } else if (t_sun < 0.5) {
+        // Afternoon -> Dusk (0.4 to 0.5)
+        const f = (t_sun - 0.4) / 0.1;
+        skyColor = skyColors.morning.clone().lerp(skyColors.dusk, f);
+    } else if (t_sun < 0.6) {
+        // Dusk -> Night (0.5 to 0.6)
+        const f = (t_sun - 0.5) / 0.1;
         skyColor = skyColors.dusk.clone().lerp(skyColors.night, f);
-    } else {
+    } else if (t_sun < 0.9) {
+        // Deep Night (0.6 to 0.9)
         skyColor = skyColors.night.clone();
+    } else {
+        // Night -> Dawn (0.9 to 1.0)
+        const f = (t_sun - 0.9) / 0.1;
+        skyColor = skyColors.night.clone().lerp(skyColors.dawn, f);
     }
+
     scene.background = skyColor;
     scene.fog.color.copy(skyColor);
 
@@ -322,6 +340,7 @@ const state = {
     isAttacking: false,
     isSprinting: false,
     isBlocking: false,
+    blockCooldown: false,
     isJumping: false,
     isGrounded: true,
 };
@@ -460,7 +479,7 @@ document.addEventListener('mousedown', (event) => {
         // Notify server of attack
         socket.emit('playerAttack');
         mixer.addEventListener('finished', restoreState);
-    } else if (event.button === 2 && actions['block']) {
+    } else if (event.button === 2 && actions['block'] && !state.blockCooldown) {
         state.isBlocking = true;
         updateAnimationState();
     }
@@ -845,8 +864,11 @@ function applyRemoteAnim(id, animName) {
 }
 
 // ── Socket events ──────────────────────────────────────────────────────────
-socket.on('init', ({ id, players }) => {
+socket.on('init', ({ id, players, serverStartTime }) => {
     myId = id;
+    if (serverStartTime) {
+        serverTimeOffset = Date.now() - serverStartTime;
+    }
     for (const [pid, pstate] of Object.entries(players)) {
         if (pid !== id) spawnRemotePlayer(pid, pstate);
     }
@@ -869,6 +891,12 @@ socket.on('playerAttacked', ({ id }) => {
     const rp = remotePlayers[id];
     if (!rp) return;
     applyRemoteAnim(id, 'attack');
+    
+    // Play sound from remote player
+    const sound = sfx.attack.cloneNode();
+    sound.volume = 0.3;
+    sound.play().catch(() => {});
+
     // Auto-restore after attack anim
     setTimeout(() => applyRemoteAnim(id, 'idle'), 1200);
 });
@@ -891,6 +919,30 @@ socket.on('youWereHit', ({ hp }) => {
 socket.on('youDied', () => {
     deathScreen.style.display = 'block';
     setHp(0);
+});
+
+socket.on('shieldBroken', () => {
+    if (state.isBlocking) {
+        state.isBlocking = false;
+        state.blockCooldown = true;
+        updateAnimationState();
+        
+        // Block sound
+        const sound = sfx.land_stone.cloneNode();
+        sound.volume = 0.5;
+        sound.play().catch(() => {});
+
+        setTimeout(() => {
+            state.blockCooldown = false;
+        }, 2000);
+    }
+});
+
+socket.on('attackBlocked', ({ targetId }) => {
+    // Play sound when hitting someone else's shield
+    const sound = sfx.land_stone.cloneNode();
+    sound.volume = 0.5;
+    sound.play().catch(() => {});
 });
 
 socket.on('respawn', ({ hp }) => {
@@ -964,6 +1016,12 @@ animateMP();
 const bgMusic = new Audio('/03 River of Life.mp3');
 bgMusic.loop = true;
 bgMusic.volume = 0.1; // Not very loud
+
+// Force restart if loop fails
+bgMusic.addEventListener('ended', () => {
+    bgMusic.currentTime = 0;
+    bgMusic.play().catch(() => {});
+});
 
 // Sound Effects
 const sfx = {

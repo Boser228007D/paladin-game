@@ -19,6 +19,7 @@ app.use((req, res) => {
 });
 
 // Game state
+const serverStartTime = Date.now();
 const players = {};
 const MAX_HP = 100;
 const ATTACK_DAMAGE = 20;
@@ -33,7 +34,7 @@ io.on("connection", (socket) => {
     console.log("[+] Player connected:", socket.id);
     players[socket.id] = { x: 0, y: 0, z: 0, rotY: 0, anim: "idle", hp: MAX_HP };
 
-    socket.emit("init", { id: socket.id, players });
+    socket.emit("init", { id: socket.id, players, serverStartTime });
     socket.broadcast.emit("playerJoined", { id: socket.id, state: players[socket.id] });
     io.emit("playerCount", Object.keys(players).length);
 
@@ -60,6 +61,7 @@ io.on("connection", (socket) => {
                     }
                 } else {
                     socket.emit("attackBlocked", { targetId: id });
+                    io.to(id).emit("shieldBroken");
                 }
             }
         }
